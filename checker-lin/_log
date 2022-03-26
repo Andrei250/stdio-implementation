@@ -1,31 +1,15 @@
-==97337== Memcheck, a memory error detector
-==97337== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
-==97337== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info
-==97337== Command: _test/bin/test_popen_write ./_test/work/test_41
-==97337== Parent PID: 97333
-==97337== 
-==97337== 
-==97337== Process terminating with default action of signal 2 (SIGINT)
-==97337==    at 0x4944DBA: wait4 (wait4.c:27)
-==97337==    by 0x484BBF6: so_pclose (so_file.c:286)
-==97337==    by 0x109690: main (test_popen_write.c:71)
-==97337== 
-==97337== HEAP SUMMARY:
-==97337==     in use at exit: 4,124 bytes in 1 blocks
-==97337==   total heap usage: 4 allocs, 3 frees, 5,676 bytes allocated
-==97337== 
-==97337== 4,124 bytes in 1 blocks are still reachable in loss record 1 of 1
-==97337==    at 0x483B7F3: malloc (in /usr/lib/x86_64-linux-gnu/valgrind/vgpreload_memcheck-amd64-linux.so)
-==97337==    by 0x484B3EE: structInit (so_file.c:21)
-==97337==    by 0x484BB4E: so_popen (so_file.c:270)
-==97337==    by 0x1095C5: main (test_popen_write.c:60)
-==97337== 
-==97337== LEAK SUMMARY:
-==97337==    definitely lost: 0 bytes in 0 blocks
-==97337==    indirectly lost: 0 bytes in 0 blocks
-==97337==      possibly lost: 0 bytes in 0 blocks
-==97337==    still reachable: 4,124 bytes in 1 blocks
-==97337==         suppressed: 0 bytes in 0 blocks
-==97337== 
-==97337== For lists of detected and suppressed errors, rerun with: -s
-==97337== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==109454== Memcheck, a memory error detector
+==109454== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==109454== Using Valgrind-3.15.0 and LibVEX; rerun with -h for copyright info
+==109454== Command: _test/bin/test_perror_fork ./_test/work/test_43
+==109454== Parent PID: 109449
+==109454== 
+==109454== 
+==109454== HEAP SUMMARY:
+==109454==     in use at exit: 0 bytes in 0 blocks
+==109454==   total heap usage: 3 allocs, 3 frees, 1,552 bytes allocated
+==109454== 
+==109454== All heap blocks were freed -- no leaks are possible
+==109454== 
+==109454== For lists of detected and suppressed errors, rerun with: -s
+==109454== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

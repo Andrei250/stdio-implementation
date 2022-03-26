@@ -1,0 +1,27 @@
+Dumitrescu Andrei 333CC
+
+Majoritatea informatiilor utile sunt puse in comentarii din cod.
+
+Functii folosite in plus:
+    - resetBuffer => resetez bufferul
+    - freeStructure => dau free la structura (ma gandisem ca o sa folosesc
+                        pointeri, insa nu a mai fost nevoie si am uitat
+                        sa o sterg)
+    - structInit => initializez o structura de tipul SO_FILE
+
+Structura SO_FILE contine: un buffer de lungime fiza, un char pentru tipul
+                            ultimei operatii, file descriptorul fisierului
+                            deschis, flag pentru eof, tipul de eroare,
+                            indexul curent din buffer, size-ul bufferului,
+                            parintele stream-ului deschis.
+
+Chit ca bufferul este fix, folosesc size in structura, deoarece la read
+se pot returna numar diferit de caractere fata de BUFFSIZ ( constanta ).
+
+Tinand cont de enunt, cand fau flush nu mai dau seek, deoarece este 
+specificat ca se va face acest lucru in teste. Daca nu era specificat, 
+logica de implementare era sa merg mai intai in punctul de unde incepe
+bufferul in fisier si sa scriu de acolo, deoarece cursorul se afla in alta
+parte.
+
+
