@@ -10,7 +10,7 @@
 #define READ_OPERATION 2
 
 typedef struct _so_file {
-	int fp, error, eof, index, sz;
+	int fp, error, eof, index, sz, parent;
 	char buffer[BUFFSIZ];
 	char op;
 } SO_FILE;
@@ -243,10 +243,52 @@ size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 
 FUNC_DECL_PREFIX SO_FILE *so_popen(const char *command, const char *type)
 {
+	SO_FILE *struc;
+	pid_t pid;
+	int err, pipes[2];
+	const char *args[] = {"sh", "-c", command, NULL};
+
+	err = pipe(pipes);
+
+	if (err == SO_EOF)
+		return NULL;
+
+	pid = fork();
+
+	if (pid == 0) {
+		if (strcmp(type, "r") == 0) {
+			close(pipes[0]);
+			dup2(pipes[1], STDOUT_FILENO);
+		} else if (strcmp(type, "w")) {
+			close(pipes[1]);
+			dup2(pipes[0], STDIN_FILENO);
+		}
+
+		execvp("sh", (char * const*) args);
+		exit(SO_EOF);
+	} else {
+		struc = structInit();
+		int toClose = strcmp(type, "r") == 0 ? 1 : 0;
+
+		struc->parent = pid;
+		struc->fp = pipes[1 - toClose];
+		close(pipes[toClose]);
+
+		return struc;
+	}
+
 	return NULL;
 }
 
 FUNC_DECL_PREFIX int so_pclose(SO_FILE *stream)
 {
-	return 0;
+	int status;
+	int rc = waitpid(stream->parent, &status, 0);
+
+	so_fclose(stream);
+
+	if (rc == SO_EOF)
+		return SO_EOF;
+
+	return status;
 }
