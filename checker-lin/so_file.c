@@ -10,179 +10,243 @@
 #define READ_OPERATION 2
 
 typedef struct _so_file {
-    int fp;
-    int flags;
-    int error;
-    int eof;
-    int index;
-    int sz;
-
-    char buffer[BUFFSIZ];
-    char op;
+	int fp, error, eof, index, sz;
+	char buffer[BUFFSIZ];
+	char op;
 } SO_FILE;
 
 
-SO_FILE *structInit() {
-    SO_FILE *str = malloc(sizeof(struct _so_file));
-    
-    str->eof = 0;
-    str->error = 0;
-    str->op = NO_OPERATION;
-    str->sz = BUFFSIZ;
-    str->index = 0;
+SO_FILE *structInit(void)
+{
+	SO_FILE *str = malloc(sizeof(struct _so_file));
 
-    return str;
+	str->eof = 0;
+	str->error = 0;
+	str->op = NO_OPERATION;
+	str->sz = BUFFSIZ;
+	str->index = 0;
+
+	return str;
 }
 
-void freeStructure(SO_FILE *structure) {
-    free(structure);
+void freeStructure(SO_FILE *structure)
+{
+	free(structure);
 }
 
-void resetBuffer(SO_FILE *structure) {
-    memset(structure->buffer, 0, BUFFSIZ);
-    structure->index = 0;
-    structure->sz = BUFFSIZ;
+void resetBuffer(SO_FILE *structure)
+{
+	memset(structure->buffer, 0, BUFFSIZ);
+	structure->index = 0;
+	structure->sz = BUFFSIZ;
 }
 
-FUNC_DECL_PREFIX SO_FILE *so_fopen(const char *pathname, const char *mode) {
-    SO_FILE *openedFile = structInit();
-    int fp;
-    int flags;
+FUNC_DECL_PREFIX SO_FILE *so_fopen(const char *pathname, const char *mode)
+{
+	SO_FILE *openedFile = structInit();
+	int fp;
+	int flags;
 
-    if (strcmp(mode, "r") == 0) {
-        flags = O_RDONLY;
-    } else if (strcmp(mode, "r+")) {
-        flags = O_RDWR;
-    } else if (strcmp(mode, "w")) {
-        flags = O_WRONLY | O_CREAT | O_TRUNC;
-    } else if (strcmp(mode, "w+")) {
-        flags = O_RDWR | O_CREAT | O_TRUNC;
-    } else if (strcmp(mode, "a")) {
-        flags = O_WRONLY | O_APPEND | O_CREAT;
-    } else if (strcmp(mode, "a+")) {
-        flags = O_RDWR | O_APPEND | O_CREAT;
-    }
+	if (strcmp(mode, "r") == 0)
+		flags = O_RDONLY;
+	else if (strcmp(mode, "r+") == 0)
+		flags = O_RDWR;
+	else if (strcmp(mode, "w") == 0)
+		flags = O_WRONLY | O_CREAT | O_TRUNC;
+	else if (strcmp(mode, "w+") == 0)
+		flags = O_RDWR | O_CREAT | O_TRUNC;
+	else if (strcmp(mode, "a") == 0)
+		flags = O_WRONLY | O_APPEND | O_CREAT;
+	else if (strcmp(mode, "a+") == 0)
+		flags = O_RDWR | O_APPEND | O_CREAT;
+	else {
+		freeStructure(openedFile);
+		return NULL;
+	}
 
-    fp = open(pathname, flags, 0644);
+	fp = open(pathname, flags, 0644);
 
-    if (fp < 0) {
-        freeStructure(openedFile);
-        return NULL;
-    }
+	if (fp < 0) {
+		freeStructure(openedFile);
+		return NULL;
+	}
 
-    if (strcmp(mode, "a") || strcmp(mode, "a+")) {
-        lseek(fp, SEEK_SET, SEEK_END);
-    }
+	openedFile->fp = fp;
 
-    openedFile->fp = fp;
-    openedFile->flags = flags;
-
-    return openedFile;
+	return openedFile;
 }
 
-FUNC_DECL_PREFIX int so_fclose(SO_FILE *stream) {
-    int rc = close(stream->fp);
+FUNC_DECL_PREFIX int so_fclose(SO_FILE *stream)
+{
+	int writing;
 
-    if (rc < 0) {
-        return SO_EOF;
-    }
+	if (stream->op == WRITE_OPERATION) {
+		writing = so_fflush(stream);
 
-    freeStructure(stream);
+		if (writing == SO_EOF) {
+			freeStructure(stream);
+			return SO_EOF;
+		}
+	}
 
-    return 0;
+	int rc = close(stream->fp);
+
+	freeStructure(stream);
+	return rc;
 }
 
 #if defined(__linux__)
-FUNC_DECL_PREFIX int so_fileno(SO_FILE *stream) {
-    return stream->fp;
+FUNC_DECL_PREFIX int so_fileno(SO_FILE *stream)
+{
+	return stream->fp;
 }
 #elif defined(_WIN32)
-FUNC_DECL_PREFIX HANDLE so_fileno(SO_FILE *stream) {
-    return stream->fp;
+FUNC_DECL_PREFIX HANDLE so_fileno(SO_FILE *stream)
+{
+	return stream->fp;
 }
 #endif
 
-FUNC_DECL_PREFIX int so_fflush(SO_FILE *stream) {
-    if (stream->op != WRITE_OPERATION) {
-        return SO_EOF;
-    }
+FUNC_DECL_PREFIX int so_fflush(SO_FILE *stream)
+{
+	if (stream->op != WRITE_OPERATION)
+		return SO_EOF;
 
-    int written = 0, totalWritten = 0;
+	int written = 0, totalWritten = 0;
 
-    while (totalWritten < stream->index) {
-        written = write (stream->fp,
-            stream->buffer + totalWritten,
-            stream->index - totalWritten);
+	while (totalWritten != stream->index) {
+		written = write(stream->fp,
+			stream->buffer + totalWritten,
+			stream->index - totalWritten);
 
-        if (written < 0) {
-            stream->error = SO_EOF;
-            return SO_EOF;
-        }
+		if (written < 0) {
+			stream->error = SO_EOF;
+			return SO_EOF;
+		}
 
-        totalWritten += written;
-    }
+		totalWritten += written;
+	}
 
-    resetBuffer(stream);
+	resetBuffer(stream);
 
-    return 0;
+	return 0;
 }
 
-FUNC_DECL_PREFIX int so_fseek(SO_FILE *stream, long offset, int whence) {
-    if (stream->op == READ_OPERATION) {
-        resetBuffer(stream);
-    } else if (stream->op == WRITE_OPERATION) {
-        so_fflush(stream);
-    }
+FUNC_DECL_PREFIX int so_fseek(SO_FILE *stream, long offset, int whence)
+{
+	if (stream->op == READ_OPERATION)
+		resetBuffer(stream);
+	else if (stream->op == WRITE_OPERATION)
+		so_fflush(stream);
 
-    int rc = lseek(stream->fp, offset, whence);
+	int rc = lseek(stream->fp, offset, whence);
 
-    if (rc < 0) {
-        return SO_EOF;
-    }
+	if (rc < 0)
+		return SO_EOF;
 
-    return 0;
+	return 0;
 }
 
-FUNC_DECL_PREFIX long so_ftell(SO_FILE *stream) {
-    return 0;
+FUNC_DECL_PREFIX long so_ftell(SO_FILE *stream)
+{
+	long currentPos = lseek(stream->fp, 0, SEEK_CUR);
+
+	if (stream->op == READ_OPERATION)
+		return currentPos - stream->sz + stream->index;
+	else
+		return currentPos + stream->index;
+
+	return SO_EOF;
 }
 
-FUNC_DECL_PREFIX int so_feof(SO_FILE *stream) {
-    return stream->eof;
+FUNC_DECL_PREFIX int so_feof(SO_FILE *stream)
+{
+	return stream->eof;
 }
 
-FUNC_DECL_PREFIX int so_ferror(SO_FILE *stream) {
-    return stream->error;
+FUNC_DECL_PREFIX int so_ferror(SO_FILE *stream)
+{
+	return stream->error;
 }
 
-FUNC_DECL_PREFIX int so_fgetc(SO_FILE *stream) {
-    stream->op = READ_OPERATION;
+FUNC_DECL_PREFIX int so_fgetc(SO_FILE *stream)
+{
+	stream->op = READ_OPERATION;
 
-    if (stream->index > 0 &&
-        stream->index < stream->sz) { // if we still have chars in buffer
-        return (int) ((unsigned char) stream->buffer[stream->index++]);
-    }
+	// if we still have chars in buffer return next char
+	if (stream->index > 0 &&
+		stream->index < stream->sz) {
+		return (int) ((unsigned char) stream->buffer[stream->index++]);
+	}
 
-    stream->sz = read(stream->fp, stream->buffer, BUFFSIZ);
+	stream->sz = read(stream->fp, stream->buffer, BUFFSIZ);
 
-    if (stream->sz <= 0) {
-        stream->eof = 1;
+	if (stream->sz <= 0) {
+		stream->error = SO_EOF;
 
-        if (stream->sz == 0) {
-            stream->error = SO_EOF;
-        }
+		if (stream->sz == 0)
+			stream->eof = 1;
 
-        return SO_EOF;
-    }
+		return SO_EOF;
+	}
 
-    stream->index = 0;
+	stream->index = 0;
 
-    return (int) ((unsigned char) stream->buffer[stream->index++]);
+	return (int) ((unsigned char) stream->buffer[stream->index++]);
 }
 
-FUNC_DECL_PREFIX int so_fputc(int c, SO_FILE *stream) {
-    stream->op = WRITE_OPERATION;
+FUNC_DECL_PREFIX int so_fputc(int c, SO_FILE *stream)
+{
+	stream->op = WRITE_OPERATION;
 
-    return SO_EOF;
+	if (stream->index == stream->sz && so_fflush(stream) == SO_EOF)
+		return SO_EOF;
+
+	stream->buffer[stream->index++] = c;
+
+	return (int)((unsigned char) c);
 }
 
+FUNC_DECL_PREFIX
+size_t so_fread(void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
+{
+	char *point = (char *) ptr;
+	int it = 0, chr;
+
+	for (; it < nmemb * size; ++it) { // reading char by char
+		chr = so_fgetc(stream);
+
+		if (chr == SO_EOF)
+			break;
+
+		point[it] = chr;
+	}
+
+	return it / size;
+}
+
+FUNC_DECL_PREFIX
+size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
+{
+	char *point = (char *) ptr;
+	int it = 0, chr;
+
+	for (; it < nmemb * size; ++it) { // reading char by char
+		chr = so_fputc(point[it], stream);
+
+		if (chr == SO_EOF)
+			return 0;
+	}
+
+	return it / size;
+}
+
+FUNC_DECL_PREFIX SO_FILE *so_popen(const char *command, const char *type)
+{
+	return NULL;
+}
+
+FUNC_DECL_PREFIX int so_pclose(SO_FILE *stream)
+{
+	return 0;
+}
